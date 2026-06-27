@@ -1,0 +1,35 @@
+{
+  "type": "object",
+  "properties": {
+    "requirement_id": {
+      "type": "string"
+    },
+    "requirement_text": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "Supported",
+        "Configurable",
+        "Custom Required",
+        "Roadmap",
+        "Unsupported",
+        "Unknown"
+      ]
+    },
+    "evidence": {
+      "type": "array"
+    },
+    "risk": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "requirement_id",
+    "requirement_text",
+    "status"
+  ]
+}
