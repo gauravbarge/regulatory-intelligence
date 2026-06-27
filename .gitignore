@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Node / UI
+node_modules/
+ui/dist/
+ui/build/
+
+# .NET
+bin/
+obj/
+*.user
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Local data / artifacts
+infra/data/
+*.log
+local-artifacts/

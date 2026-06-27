@@ -1,0 +1,29 @@
+{
+  "type": "object",
+  "properties": {
+    "agent_name": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "confidence": {
+      "type": "number"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "findings": {
+      "type": "array"
+    },
+    "evidence": {
+      "type": "array"
+    },
+    "risks": {
+      "type": "array"
+    },
+    "recommended_actions": {
+      "type": "array"
+    }
+  }
+}
