@@ -185,13 +185,61 @@ class BedrockModelGateway(ModelGateway):
         agent_results: list[dict[str, Any]],
         context: RequestContext,
     ) -> dict[str, Any]:
-        # The structured synthesis prompt lives here in a full build; for now we
-        # reuse the deterministic aggregation so behaviour is identical offline
-        # and the Bedrock path stays a drop-in. Replace with a JSON-mode call
-        # to Claude when wiring real synthesis.
-        return await FakeModelGateway().synthesize(
-            user_query, use_case, agent_results, context
+        import json
+
+        from langchain_core.messages import HumanMessage, SystemMessage
+
+        # Build a compact summary of agent results to keep token count manageable.
+        agent_summaries = []
+        for r in agent_results:
+            agent_summaries.append({
+                "agent": r.get("agent_name"),
+                "status": r.get("status"),
+                "confidence": r.get("confidence"),
+                "summary": r.get("summary", ""),
+                "findings": [f.get("statement") for f in r.get("findings", [])[:3]],
+                "evidence_count": len(r.get("evidence", [])),
+            })
+
+        decision_options = (
+            "supported, partially_supported, unsupported, "
+            "validation_required, no_validation_required, human_review_required"
         )
+        sys_msg = SystemMessage(
+            content=(
+                "You are the Regulatory Intelligence Supervisor. Synthesize the agent results "
+                "into a structured response. Reply ONLY with valid JSON matching this schema:\n"
+                '{"decision": "<one of: ' + decision_options + '>", '
+                '"executive_summary": "<2-3 sentence summary>", '
+                '"evidence_backed_findings": [{"statement": "...", "confidence": 0.0, "evidence_ids": []}], '
+                '"confidence": 0.0}\n'
+                "Rules: Never make compliance claims without evidence. "
+                "Mark human_review_required if any finding lacks evidence or confidence < 0.7."
+            )
+        )
+        human_msg = HumanMessage(
+            content=(
+                f"Use case: {use_case.value}\n"
+                f"User query: {user_query}\n"
+                f"Context: {context.model_dump()}\n\n"
+                f"Agent results:\n{json.dumps(agent_summaries, indent=2)}"
+            )
+        )
+        try:
+            resp = await self._client().ainvoke([sys_msg, human_msg])
+            raw = str(resp.content).strip()
+            if raw.startswith("```"):
+                raw = raw.split("```")[1]
+                if raw.startswith("json"):
+                    raw = raw[4:]
+            parsed = json.loads(raw)
+            # Validate required keys are present
+            if "decision" in parsed and "executive_summary" in parsed:
+                return parsed
+        except Exception:
+            pass
+        # Fall back to deterministic aggregation on any parse/network failure.
+        return await FakeModelGateway().synthesize(user_query, use_case, agent_results, context)
 
 
 def create_model_gateway(settings: Settings | None = None) -> ModelGateway:

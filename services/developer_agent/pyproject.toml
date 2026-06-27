@@ -3,22 +3,20 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "medidata-common"
+name = "developer-agent"
 version = "0.1.0"
-description = "Shared contracts, config, messaging and audit utilities for the Regulatory Intelligence platform."
+description = "Developer specialist agent — GitHub code, PR and commit analysis."
 requires-python = ">=3.10"
 dependencies = [
-    "pydantic>=2.7",
-    "pydantic-settings>=2.3",
-    "structlog>=24.1",
-    "orjson>=3.10",
-    "aiokafka>=0.11",
+    "medidata-common",
     "langgraph>=0.2.30",
     "langchain-core>=0.3",
-    "typing-extensions>=4.11",
+    "orjson>=3.10",
 ]
 
 [project.optional-dependencies]
+github = ["httpx>=0.27"]
+bedrock = ["langchain-aws>=0.2", "boto3>=1.34"]
 dev = [
     "pytest>=8.2",
     "pytest-asyncio>=0.23",
@@ -26,6 +24,9 @@ dev = [
     "mypy>=1.10",
 ]
 
+[project.scripts]
+developer-agent = "developer_agent.app:main"
+
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["medidata_common*"]
+include = ["developer_agent*"]
