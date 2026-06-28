@@ -1,0 +1,85 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supervisor
+  namespace: regintel
+  labels:
+    app: supervisor
+    app.kubernetes.io/component: agent
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: supervisor
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: supervisor
+    spec:
+      serviceAccountName: regintel-agent
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: supervisor
+          image: ghcr.io/gauravbarge/regulatory-intelligence/supervisor:latest
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: regintel-config
+            - secretRef:
+                name: regintel-secrets
+          env:
+            - name: KAFKA_CONSUMER_GROUP
+              value: supervisor
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          livenessProbe:
+            exec:
+              command: ["python", "-c", "import supervisor; print('ok')"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command: ["python", "-c", "import supervisor; print('ok')"]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: supervisor-hpa
+  namespace: regintel
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: supervisor
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

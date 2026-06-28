@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: regintel
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - rbac.yaml
+  - ../infra/kafka.yaml
+  - ../infra/mongodb.yaml
+  - ../infra/qdrant.yaml
+  - ../infra/minio.yaml
+  - ../agents/supervisor.yaml
+  - ../agents/research-agent.yaml
+  - ../agents/developer-agent.yaml
+  - ../agents/agile-master-agent.yaml
+  - ../agents/document-analyst.yaml
+  - ../agents/ingestion.yaml

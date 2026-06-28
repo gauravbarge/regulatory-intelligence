@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: regintel
+  labels:
+    app.kubernetes.io/name: regulatory-intelligence
+    app.kubernetes.io/part-of: regintel

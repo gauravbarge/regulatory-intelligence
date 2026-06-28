@@ -2,34 +2,184 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master, main]
   pull_request:
+    branches: [master, main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/regulatory-intelligence
 
 jobs:
-  python:
-    name: Python tier (common + supervisor)
+  # ── Lint ────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
+      - run: pip install ruff
+      - run: ruff check libs/ services/
+      - run: ruff format --check libs/ services/
 
-      - name: Install
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e libs/common -e "services/supervisor[dev]"
+  # ── Tests per service ───────────────────────────────────────────────────
+  test-common:
+    name: Test / medidata-common
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e "libs/common[dev]"
+      - run: pytest libs/common -q
 
-      - name: Lint
-        run: ruff check libs services
+  test-supervisor:
+    name: Test / supervisor
+    runs-on: ubuntu-latest
+    needs: test-common
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: |
+          pip install -e "libs/common"
+          pip install -e "services/supervisor[dev]"
+      - run: pytest services/supervisor -q
 
-      - name: Type check
-        run: mypy libs/common/medidata_common services/supervisor/supervisor
+  test-research-agent:
+    name: Test / research_agent
+    runs-on: ubuntu-latest
+    needs: test-common
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: |
+          pip install -e "libs/common"
+          pip install -e "services/research_agent[dev]"
+      - run: pytest services/research_agent -q
 
-      - name: Test
-        env:
-          KAFKA_MODE: memory
-          MODEL_GATEWAY_MODE: fake
-          CHECKPOINTER_MODE: memory
-        run: pytest -q
+  test-developer-agent:
+    name: Test / developer_agent
+    runs-on: ubuntu-latest
+    needs: test-common
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: |
+          pip install -e "libs/common"
+          pip install -e "services/developer_agent[dev]"
+      - run: pytest services/developer_agent -q
+
+  test-agile-master-agent:
+    name: Test / agile_master_agent
+    runs-on: ubuntu-latest
+    needs: test-common
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: |
+          pip install -e "libs/common"
+          pip install -e "services/agile_master_agent[dev]"
+      - run: pytest services/agile_master_agent -q
+
+  test-document-analyst:
+    name: Test / document_analyst
+    runs-on: ubuntu-latest
+    needs: test-common
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: |
+          pip install -e "libs/common"
+          pip install -e "services/document_analyst[dev]"
+      - run: pytest services/document_analyst -q
+
+  test-ingestion:
+    name: Test / ingestion
+    runs-on: ubuntu-latest
+    needs: test-common
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: |
+          pip install -e "libs/common"
+          pip install -e "services/ingestion[dev]"
+      - run: pytest services/ingestion -q
+
+  # ── Build & push Docker images ──────────────────────────────────────────
+  build-push:
+    name: Build & Push / ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    needs:
+      - lint
+      - test-supervisor
+      - test-research-agent
+      - test-developer-agent
+      - test-agile-master-agent
+      - test-document-analyst
+      - test-ingestion
+    strategy:
+      matrix:
+        include:
+          - service: supervisor
+            image: supervisor
+          - service: research_agent
+            image: research-agent
+          - service: developer_agent
+            image: developer-agent
+          - service: agile_master_agent
+            image: agile-master-agent
+          - service: document_analyst
+            image: document-analyst
+          - service: ingestion
+            image: ingestion
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: services/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -1,0 +1,45 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingestion
+  namespace: regintel
+  labels:
+    app: ingestion
+    app.kubernetes.io/component: pipeline
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ingestion
+  template:
+    metadata:
+      labels:
+        app: ingestion
+    spec:
+      serviceAccountName: regintel-agent
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+      terminationGracePeriodSeconds: 120
+      containers:
+        - name: ingestion
+          image: ghcr.io/gauravbarge/regulatory-intelligence/ingestion:latest
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: regintel-config
+            - secretRef:
+                name: regintel-secrets
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 2000m
+              memory: 4Gi
+          livenessProbe:
+            exec:
+              command: ["python", "-c", "import ingestion; print('ok')"]
+            initialDelaySeconds: 30
+            periodSeconds: 60

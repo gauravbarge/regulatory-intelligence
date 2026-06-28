@@ -1,0 +1,14 @@
+# Minimal RBAC — agent pods run as a dedicated ServiceAccount with no
+# cluster-level permissions. AWS IRSA / GKE Workload Identity can be
+# added by annotating this ServiceAccount with the IAM role ARN.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: regintel-agent
+  namespace: regintel
+  annotations:
+    # AWS IRSA: uncomment and set your role ARN
+    # eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/regintel-agent-role
+    # GKE Workload Identity: uncomment and set your GSA email
+    # iam.gke.io/gcp-service-account: regintel-agent@PROJECT.iam.gserviceaccount.com

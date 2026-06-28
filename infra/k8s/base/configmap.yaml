@@ -1,0 +1,43 @@
+# Non-secret runtime configuration shared across all agent services.
+# Override per-environment via kustomize patches.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: regintel-config
+  namespace: regintel
+data:
+  APP_ENV: "prod"
+  LOG_LEVEL: "INFO"
+  LOG_JSON: "true"
+
+  # Kafka
+  KAFKA_MODE: "aiokafka"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka-headless.regintel.svc.cluster.local:9092"
+  KAFKA_CONSUMER_GROUP: "agents"
+
+  # MongoDB
+  MONGODB_DB: "regintel"
+  CHECKPOINTER_MODE: "mongodb"
+
+  # Qdrant
+  QDRANT_URL: "http://qdrant.regintel.svc.cluster.local:6333"
+
+  # S3 / MinIO
+  S3_BUCKET: "regintel-artifacts"
+  AWS_REGION: "us-east-1"
+
+  # Model
+  MODEL_GATEWAY_MODE: "bedrock"
+  BEDROCK_MODEL_ID: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+  BEDROCK_MAX_TOKENS: "4096"
+  BEDROCK_TEMPERATURE: "0.0"
+
+  # Guardrails
+  COMPLIANCE_CONFIDENCE_THRESHOLD: "0.8"
+
+  # Ingestion
+  INGESTION_WATCH_PREFIX: "uploads/"
+  INGESTION_POLL_INTERVAL_S: "30"
+
+  # Observability
+  LANGSMITH_TRACING: "false"
